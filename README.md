@@ -2,7 +2,7 @@
 
 # Steps on how to run the Model for video analysis and output
 
-1. Important! Firstly, you will need to create an virtual environment before running the below commands, to create virtual environments - ```python -m venv venv```
+1. Important! Firstly, you will need to create an virtual environment before running the below commands, to create virtual environment run: ```python -m venv venv```
 2. Start the venv: ```.\venv\Scripts\activate```
 3. Now run: ```pip install -m requirements.txt```
 4. Move to directory: fire_detection_project ```cd /fire_detection_project```
