@@ -1,0 +1,5 @@
+Django
+tensorflow
+opencv-python-headless
+numpy
+Pillow
