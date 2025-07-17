@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Video | Fire & Smoke Detection</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: #ecf0f1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: rgba(44, 62, 80, 0.8);
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            width: 100%;
+            max-width: 550px;
+            border: 1px solid rgba(236, 240, 241, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            color: #e74c3c;
+            margin-bottom: 15px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        p {
+            color: #bdc3c7;
+            margin-bottom: 40px;
+        }
+        .upload-form {
+            border: 2px dashed #e74c3c;
+            border-radius: 12px;
+            padding: 40px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        .upload-form:hover {
+            background-color: rgba(231, 76, 60, 0.1);
+            border-color: #c0392b;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .upload-icon svg {
+            width: 48px;
+            height: 48px;
+            color: #e74c3c;
+            margin-bottom: 15px;
+        }
+        .upload-btn {
+            background: #e74c3c;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            margin-top: 25px;
+            display: inline-block;
+        }
+        .upload-btn:hover {
+            background-color: #c0392b;
+            transform: translateY(-2px);
+        }
+        #file-name {
+            margin-top: 20px;
+            font-style: italic;
+            color: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fire & Smoke Detection System</h1>
+        <p>Upload a video file to analyze for potential hazards in real-time.</p>
+        
+        <form id="main-form" action="{% url 'upload_video' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <label for="video-upload" class="upload-form">
+                <p><strong>Click here or drag & drop a video file</strong></p>  
+                <div class="upload-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </div>
+                <span id="file-name">No file selected</span>
+            </label>
+            <input id="video-upload" type="file" name="video" accept="video/*" required>
+            <br>
+            <button type="submit" class="upload-btn">Analyze Video</button>
+        </form>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('video-upload');
+        const fileNameSpan = document.getElementById('file-name');
+        
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                fileNameSpan.textContent = fileInput.files[0].name;
+            } else {
+                fileNameSpan.textContent = 'No file selected';
+            }
+        });
+    </script>
+</body>
+</html>
