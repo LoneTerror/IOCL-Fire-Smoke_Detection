@@ -4,71 +4,77 @@ import numpy as np
 import tensorflow as tf
 from django.conf import settings
 import os
+from datetime import datetime
+from tensorflow.keras.applications.resnet50 import preprocess_input
 
 # --- Model Loading ---
-# Load the pre-trained model once when the module is loaded.
-# This is more efficient than loading it for every request.
-# --- THIS IS THE FIX ---
-# Updated to use the correct model filename.
 MODEL_PATH = os.path.join(settings.BASE_DIR, 'fire_detection', 'ml_model', 'resnet50_fire_detection_model.h5')
+LOG_FILE_PATH = os.path.join(settings.BASE_DIR, 'detection_log.txt')
 
 try:
-    # It's good practice to wrap this in a try-except block
-    # in case the model file is missing or corrupted.
     model = tf.keras.models.load_model(MODEL_PATH)
     print("✅ Model loaded successfully!")
 except (IOError, ImportError) as e:
     print(f"❌ Error loading model: {e}")
     model = None
 
+# --- Logging Function ---
+def log_detection_event(event_label, confidence, video_name):
+    """Appends a detection event to the log file and prints it to the console."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_message = f"[{timestamp}] - Event: {event_label} | Confidence: {confidence:.2f}% | Video: {video_name}"
+    print(f"LOGGING EVENT: {log_message}")
+    try:
+        with open(LOG_FILE_PATH, 'a') as log_file:
+            log_file.write(log_message + "\n")
+    except IOError as e:
+        print(f"❌ Could not write to log file: {e}")
+
+
 # --- Video Processing Logic ---
-
-def process_frame(frame):
-    """
-    Processes a single video frame to detect fire or smoke.
-
-    Args:
-        frame: A numpy array representing a single video frame (from OpenCV).
-
-    Returns:
-        A tuple (label, frame) where:
-        - label (str): The prediction ("Fire", "Smoke", "Neutral").
-        - frame (numpy.ndarray): The processed frame with the label drawn on it.
-    """
+def process_frame(frame, video_name):
+    """Processes a single video frame to detect fire or smoke."""
     if model is None:
-        # If the model failed to load, return the original frame with an error message.
         cv2.putText(frame, "Error: Model not loaded", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         return "Error", frame
 
-    # 1. Preprocess the frame for the model
-    # The error message told us the model expects 224x224 images.
+    # 1. Preprocess the frame
     img_size = (224, 224)
+    # We resize the raw BGR frame directly to match the training script.
     img = cv2.resize(frame, img_size)
+    
     img_array = tf.keras.preprocessing.image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)  # Create a batch
+    img_array = np.expand_dims(img_array, axis=0)
+    
+    # Use the dedicated preprocessing function for ResNet50
+    img_array = preprocess_input(img_array)
 
     # 2. Make a prediction
     predictions = model.predict(img_array)
     score = tf.nn.softmax(predictions[0])
     
-    # Assuming your model has class names in this order.
-    # **IMPORTANT**: Adjust these class names to match your model's output.
     class_names = ['Fire', 'Neutral', 'Smoke']
     label = class_names[np.argmax(score)]
     confidence = 100 * np.max(score)
+    
+    # --- THIS IS THE FIX: Restore diagnostic labels on every frame ---
+    # Display the top prediction
+    text = f"Prediction: {label} ({confidence:.2f}%)"
+    color = (0, 255, 0) if label == "Neutral" else ( (0, 0, 255) if label == "Fire" else (150, 150, 150) )
 
-    # 3. Draw the result on the original frame
-    # Only show labels for fire or smoke with a certain confidence
+    # Create a black rectangle as a background for the text
+    cv2.rectangle(frame, (10, 20), (450, 110), (0,0,0), -1)
+    
+    # Draw the top prediction text
+    cv2.putText(frame, text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
+    # Display the raw confidence scores for all classes
+    scores_text = f"Scores: F={score[0]:.2f}, N={score[1]:.2f}, S={score[2]:.2f}"
+    cv2.putText(frame, scores_text, (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+    
+    # The logging logic remains conditional
     if label in ["Fire", "Smoke"] and confidence > 60:
-        text = f"{label}: {confidence:.2f}%"
-        # Set color based on label
-        color = (0, 0, 255) if label == "Fire" else (150, 150, 150) # Red for fire, Gray for smoke
-        
-        # Add a semi-transparent background rectangle for the text
-        (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
-        cv2.rectangle(frame, (20, 30 - h - 5), (20 + w, 30 + 10), (0,0,0), -1)
-        # Put the text on the frame
-        cv2.putText(frame, text, (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+        log_detection_event(label, confidence, video_name)
 
     return label, frame
 
@@ -77,40 +83,46 @@ def generate_video_frames(video_path):
     """
     A generator function that reads a video file, processes each frame,
     and yields it as a byte string in JPEG format.
-
-    Args:
-        video_path (str): The full path to the video file.
     """
-    # Create a VideoCapture object
     cap = cv2.VideoCapture(video_path)
+    video_name = os.path.basename(video_path)
 
     if not cap.isOpened():
         print(f"❌ Error: Could not open video file at {video_path}")
         return
 
-    print(f"✅ Started processing video: {video_path}")
+    start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    start_log = f"\n--- ANALYSIS STARTED for {video_name} at {start_time} ---\n"
+    try:
+        with open(LOG_FILE_PATH, 'a') as log_file:
+            log_file.write(start_log)
+    except IOError as e:
+        print(f"❌ Could not write to log file: {e}")
+
+    print(f"✅ Started processing video: {video_name}")
     while True:
-        # Read one frame from the video
         success, frame = cap.read()
         if not success:
-            # End of video
             break
 
-        # Process the frame for fire/smoke detection
-        label, processed_frame = process_frame(frame)
+        label, processed_frame = process_frame(frame, video_name)
 
-        # Encode the processed frame into JPEG format
         ret, buffer = cv2.imencode('.jpg', processed_frame)
         if not ret:
-            # Skip frame if encoding fails
             continue
         
         frame_bytes = buffer.tobytes()
 
-        # Yield the frame in the format required for multipart streaming
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-    # Release the video capture object when done
     cap.release()
     print("✅ Finished processing video.")
+
+    end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    end_log = f"--- ANALYSIS FINISHED for {video_name} at {end_time} ---\n"
+    try:
+        with open(LOG_FILE_PATH, 'a') as log_file:
+            log_file.write(end_log)
+    except IOError as e:
+        print(f"❌ Could not write to log file: {e}")

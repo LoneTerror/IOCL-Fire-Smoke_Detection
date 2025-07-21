@@ -8,4 +8,4 @@ Important! Follow the steps carefully
 2. Start the venv: ```.\venv\Scripts\activate```
 3. Install Dependencies: ```pip install -r requirements.txt```
 4. Start the server locally: ```python manage.py runserver```
-5. Access your local webserver here: [```http://127.0.0.1:8000```](http://127.0.0.1:8000)
+5. Access your local webserver here: [```http://127.0.0.1:8000```](http://127.0.0.1:8000) 

@@ -1,6 +1,6 @@
 # fire_detection/views.py
 from django.shortcuts import render, redirect
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, HttpResponse
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from .video_processor import generate_video_frames
@@ -14,18 +14,13 @@ def upload_video_view(request):
     if request.method == 'POST' and request.FILES.get('video'):
         video_file = request.FILES['video']
         
-        # Use FileSystemStorage to save the file
         fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'videos'))
         filename = fs.save(video_file.name, video_file)
         
-        # Store the path to the video file in the session
         request.session['video_path'] = fs.path(filename)
         
-        # Redirect to the page that will display the video stream
         return redirect('monitor')
 
-    # --- THIS IS THE CRITICAL LINE ---
-    # It ensures Django processes the HTML file as a template.
     return render(request, 'fire_detection/upload.html')
 
 
@@ -56,3 +51,25 @@ def video_feed_view(request):
     )
     
     return response
+
+# --- NEW VIEW FOR LOGS ---
+def view_log_file(request):
+    """
+    Reads the detection_log.txt file and displays it on a new page.
+    """
+    log_file_path = os.path.join(settings.BASE_DIR, 'detection_log.txt')
+    log_content = "Log file is empty or does not exist yet."
+    try:
+        with open(log_file_path, 'r') as f:
+            # Read lines and reverse them to show the most recent logs first
+            log_lines = f.readlines()
+            if log_lines:
+                log_content = "".join(reversed(log_lines))
+    except FileNotFoundError:
+        # The file hasn't been created yet, the default message will be shown.
+        pass
+    except Exception as e:
+        log_content = f"Error reading log file: {e}"
+        
+    context = {'log_content': log_content}
+    return render(request, 'fire_detection/view_log.html', context)
