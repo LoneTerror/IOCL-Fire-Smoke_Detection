@@ -1,5 +1,15 @@
-Django
-tensorflow
+# Main application framework
+Django==4.2.5
+
+# PyTorch for machine learning (install with the specific command for your CUDA version)
+torch
+torchvision
+torchaudio
+
+# Image and video processing
 opencv-python-headless
 numpy
 Pillow
+
+# For PyTorch cuda use (Need to run manually once)
+# pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
