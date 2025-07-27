@@ -14,55 +14,44 @@ from datetime import datetime
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"✅ PyTorch is using device: {DEVICE}")
 
-CLASS_NAMES = ['Fire', 'Neutral', 'Smoke']
+# --- THIS IS THE FIX: Match the alphabetical order of your training folders ---
+CLASS_NAMES = ['fire', 'neutral', 'smoke']
 NUM_CLASSES = len(CLASS_NAMES)
 
-# --- THIS IS THE FIX for the RuntimeError ---
-# 1. Define the EXACT same custom model architecture you used for training.
-#    The error message suggests your model has a 'backbone' and a 'classifier'.
-#    This is a common pattern. The following is a LIKELY example using MobileNetV2,
-#    as its layer names match the error keys like "backbone.features...".
-#    You MUST adjust this to match the model definition in your actual training script.
-
+# --- Define Custom Model Architecture ---
+# This MUST match the model definition in your actual training script.
+# Based on your training script, you used a custom MobileNetV2.
 class CustomFireModel(nn.Module):
     def __init__(self, num_classes):
         super(CustomFireModel, self).__init__()
-        # Use a pre-trained model as the feature-extracting backbone
         self.backbone = models.mobilenet_v2(weights=models.MobileNet_V2_Weights.DEFAULT)
-        
-        # Freeze the backbone layers so their weights don't change during training
         for param in self.backbone.parameters():
             param.requires_grad = False
-            
-        # Replace the model's final classifier layer with a new one for our task
         in_features = self.backbone.classifier[1].in_features
         self.backbone.classifier = nn.Sequential(
             nn.Dropout(p=0.2, inplace=False),
             nn.Linear(in_features, num_classes)
         )
-
     def forward(self, x):
         return self.backbone(x)
 
-# 2. Instantiate your custom model structure
+# Instantiate your custom model structure
 model = CustomFireModel(num_classes=NUM_CLASSES)
 
-
-# 3. Load your trained weights into this custom structure.
-MODEL_PATH = os.path.join(settings.BASE_DIR, 'fire_detection', 'ml_model', 'best_fire_detection_cnn.pth')
+# Load your trained weights
+MODEL_PATH = os.path.join(settings.BASE_DIR, 'fire_detection', 'ml_model', 'best_fire_detection_cnn_v2.pth')
 LOG_FILE_PATH = os.path.join(settings.BASE_DIR, 'detection_log.txt')
 
 try:
-    # Load the state dictionary (the saved weights) into your model structure
     model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
     model.to(DEVICE)
-    model.eval() # Set the model to evaluation mode
+    model.eval()
     print("✅ PyTorch model loaded successfully!")
 except Exception as e:
     print(f"❌ Error loading PyTorch model: {e}")
     model = None
 
-# 4. Define the image transformations.
+# Define the image transformations
 preprocess = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(224),
@@ -87,12 +76,16 @@ def process_frame(frame, video_name):
         cv2.putText(frame, "Error: Model not loaded", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         return "Error", frame
 
+    # --- THIS IS THE MISSING CODE ---
+    # Convert the captured frame from BGR to RGB, then to a PIL Image
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     pil_image = Image.fromarray(rgb_frame)
     
+    # Apply the preprocessing transforms and prepare the batch
     input_tensor = preprocess(pil_image)
     input_batch = input_tensor.unsqueeze(0).to(DEVICE)
-
+    # --- END OF MISSING CODE ---
+ 
     with torch.no_grad():
         output = model(input_batch)
     
@@ -102,20 +95,23 @@ def process_frame(frame, video_name):
     label = CLASS_NAMES[predicted_idx.item()]
     confidence = confidence.item() * 100
 
-    text = f"Prediction: {label} ({confidence:.2f}%)"
-    color = (0, 255, 0) if label == "Neutral" else ((0, 0, 255) if label == "Fire" else (150, 150, 150))
+    display_label = label.capitalize()
+
+    text = f"Prediction: {display_label} ({confidence:.2f}%)"
+    # Correct color mapping for the new order
+    color = (0, 0, 255) if label == "fire" else ((0, 255, 0) if label == "neutral" else (150, 150, 150))
 
     cv2.rectangle(frame, (10, 20), (450, 110), (0,0,0), -1)
     cv2.putText(frame, text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
+    # Correct scores display for the new order
     scores_text = f"Scores: F={probabilities[0]:.2f}, N={probabilities[1]:.2f}, S={probabilities[2]:.2f}"
     cv2.putText(frame, scores_text, (20, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-    if label in ["Fire", "Smoke"] and confidence > 60:
-        log_detection_event(label, confidence, video_name)
+    if label in ["fire", "smoke"] and confidence > 60:
+        log_detection_event(display_label, confidence, video_name)
 
     return label, frame
-
 
 def generate_video_frames(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -144,7 +140,7 @@ def generate_video_frames(video_path):
         ret, buffer = cv2.imencode('.jpg', processed_frame)
         if not ret:
             continue
-        
+
         frame_bytes = buffer.tobytes()
 
         yield (b'--frame\r\n'
