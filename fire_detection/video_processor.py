@@ -156,6 +156,3 @@ def generate_video_frames(video_path):
             log_file.write(end_log)
     except IOError as e:
         print(f"❌ Could not write to log file: {e}")
-
-
-        # Lmao
