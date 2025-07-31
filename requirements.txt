@@ -10,5 +10,11 @@ numpy
 Pillow
 
 # PyTorch for machine learning (install with the specific command for your CUDA version)
-# For PyTorch cuda use (Need to run manually once)
+
+# For non-cuda machines (Uncomment the below three)
+# torch
+# torchvision
+# torchaudio
+
+# For PyTorch cuda 12.1 use (Need to run manually once)
 # pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
