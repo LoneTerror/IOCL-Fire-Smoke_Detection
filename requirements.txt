@@ -1,6 +1,9 @@
 # Main application framework
 Django==4.2.5
 
+# YOLOv8 and its dependencies
+ultralytics
+
 # Image and video processing
 opencv-python-headless
 numpy

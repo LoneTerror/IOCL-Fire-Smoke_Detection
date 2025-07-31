@@ -39,7 +39,7 @@ class CustomFireModel(nn.Module):
 model = CustomFireModel(num_classes=NUM_CLASSES)
 
 # Load your trained weights
-MODEL_PATH = os.path.join(settings.BASE_DIR, 'fire_detection', 'ml_model', 'best_fire_detection_cnn_v2.pth')
+MODEL_PATH = os.path.join(settings.BASE_DIR, 'fire_detection', 'ml_model', 'fire_detection_final_model_v2.pth')
 LOG_FILE_PATH = os.path.join(settings.BASE_DIR, 'detection_log.txt')
 
 try:

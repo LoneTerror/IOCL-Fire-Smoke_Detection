@@ -5,46 +5,148 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring Feed | Fire & Smoke Detection</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #1a1a1a;
-            color: #f4f7f6;
+            font-family: 'Poppins', sans-serif;
+            background: #1e1e1e;
+            color: #ecf0f1;
             margin: 0;
-            padding: 20px;
-            text-align: center;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
         }
         .header {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
         h1 {
-            color: #d9534f;
+            color: #e74c3c;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+        p {
+            color: #bdc3c7;
         }
         .video-container {
-            display: inline-block;
-            border: 3px solid #444;
-            border-radius: 8px;
+            position: relative;
+            border: 2px solid #333;
+            border-radius: 12px;
             background-color: #000;
-            box-shadow: 0 0 20px rgba(217, 83, 79, 0.3);
-            max-width: 95%;
+            box-shadow: 0 0 25px rgba(231, 76, 60, 0.2);
+            width: 100%;
+            max-width: 854px;
+            aspect-ratio: 16 / 9;
+            margin-bottom: 35px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        img {
+        /* --- THIS IS THE FIX --- */
+        /* Style both the image and the canvas to fit the container */
+        img#video-stream, canvas#paused-canvas {
             display: block;
             width: 100%;
-            height: auto;
-            border-radius: 6px;
+            height: 100%;
+            object-fit: contain; /* For the image */
         }
-        .back-link {
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: rgba(0, 0, 0, 0.6);
+            font-size: 1.2em;
+            color: #ccc;
+            backdrop-filter: blur(5px);
+            z-index: 10;
+        }
+        .button-container {
+            width: 100%;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .btn {
             display: inline-block;
-            margin-top: 25px;
-            padding: 10px 20px;
-            background-color: #5bc0de;
+            padding: 14px 28px;
+            font-size: 16px;
+            font-weight: 600;
             color: white;
             text-decoration: none;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
+            border-radius: 8px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            border: none;
+            cursor: pointer;
         }
-        .back-link:hover {
-            background-color: #31b0d5;
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary { background-color: #3498db; }
+        .btn-primary:hover { background-color: #2980b9; }
+        .btn-secondary { background-color: #95a5a6; }
+        .btn-secondary:hover { background-color: #7f8c8d; }
+        
+        .controls-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 20;
+        }
+        .video-container:hover .controls-overlay {
+            opacity: 1;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .control-group button {
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            border: 1px solid #555;
+            background-color: rgba(51, 51, 51, 0.8);
+            color: white;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .control-group button:hover {
+            background-color: #555;
+        }
+        .control-group button.active {
+            background-color: #e74c3c;
+            border-color: #e74c3c;
+        }
+        #play-pause-btn {
+            background: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+        }
+        #play-pause-btn svg {
+            width: 100%;
+            height: 100%;
+            fill: white;
         }
     </style>
 </head>
@@ -55,15 +157,143 @@
     </div>
 
     <div class="video-container">
-        <!-- The 'src' attribute points to our video feed view.
-             The browser will keep the connection open and display the stream of JPEG frames. -->
-        <img src="{% url 'video_feed' %}" alt="Video Feed">
+        <div id="loading-message" class="loading-overlay">
+            <p>Waiting for video input...</p>
+        </div>
+        <!-- Add a canvas to hold the paused frame -->
+        <canvas id="paused-canvas" style="display: none;"></canvas>
+        <img id="video-stream" src="" alt="Video Feed" style="display: none;">
+
+        <div class="controls-overlay">
+            <div class="control-group">
+                <button id="play-pause-btn">
+                    <svg id="pause-icon" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
+                    <svg id="play-icon" viewBox="0 0 24 24" style="display: none;"><path d="M8 5v14l11-7z"></path></svg>
+                </button>
+            </div>
+            <div class="control-group" id="speed-controls">
+                <span>Speed:</span>
+                <button data-speed="0.5">0.5x</button>
+                <button data-speed="0.75">0.75x</button>
+                <button data-speed="1.0" class="active">1x</button>
+                <button data-speed="1.25">1.25x</button>
+                <button data-speed="1.5">1.5x</button>
+                <button data-speed="2.0">2x</button>
+            </div>
+        </div>
     </div>
 
-    <div class="analyze-another-video">
-    <a href="{% url 'upload_video' %}" class="back-link">Analyze Another Video</a>
+    <div class="button-container">
+        <a href="{% url 'upload_video' %}" class="btn btn-primary">Analyze Another Video</a>
+        <a href="{% url 'view_log' %}" class="btn btn-secondary">View Detection Log</a>
     </div>
 
-    
+    <script>
+        const videoStream = document.getElementById('video-stream');
+        const loadingMessage = document.getElementById('loading-message');
+        const speedButtons = document.querySelectorAll('#speed-controls button');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        
+        // --- THIS IS THE FIX ---
+        // Get the canvas and its 2D drawing context
+        const pausedCanvas = document.getElementById('paused-canvas');
+        const ctx = pausedCanvas.getContext('2d');
+        
+        let streamStarted = false;
+        let isPaused = false;
+        let currentVideoUrl = '';
+
+        const baseVideoUrl = "{% url 'video_feed' %}";
+
+        function setVideoStream(url) {
+            currentVideoUrl = url;
+            loadingMessage.style.display = 'flex';
+            videoStream.style.display = 'none';
+            pausedCanvas.style.display = 'none'; // Hide canvas when starting stream
+            videoStream.src = currentVideoUrl;
+        }
+
+        function updatePlayPauseIcon() {
+            if (isPaused) {
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+            } else {
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+            }
+        }
+
+        // --- Event Listeners ---
+        speedButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                if (button.classList.contains('active') && !isPaused) return;
+
+                speedButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                
+                const speed = button.dataset.speed;
+                const newUrl = `${baseVideoUrl}?speed=${speed}`;
+                isPaused = false;
+                updatePlayPauseIcon();
+                setVideoStream(newUrl);
+            });
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            updatePlayPauseIcon();
+
+            if (isPaused) {
+                // --- THIS IS THE FIX ---
+                // 1. Draw the current video frame to the canvas
+                // Set canvas dimensions to match the video image to maintain quality
+                pausedCanvas.width = videoStream.naturalWidth;
+                pausedCanvas.height = videoStream.naturalHeight;
+                ctx.drawImage(videoStream, 0, 0);
+
+                // 2. Stop the stream and hide the image element
+                videoStream.src = ''; 
+                videoStream.style.display = 'none';
+                
+                // 3. Show the canvas with the frozen frame
+                pausedCanvas.style.display = 'block';
+
+                // 4. Update the overlay message
+                loadingMessage.innerHTML = '<p>Paused</p>';
+                loadingMessage.style.display = 'flex';
+            } else {
+                // Resume logic
+                loadingMessage.innerHTML = '<p>Resuming...</p>';
+                setVideoStream(currentVideoUrl);
+            }
+        });
+
+        videoStream.onload = function() {
+            streamStarted = true;
+            if (!isPaused) {
+                loadingMessage.style.display = 'none';
+                videoStream.style.display = 'block';
+                pausedCanvas.style.display = 'none';
+            }
+        };
+
+        videoStream.onerror = function() {
+            if (streamStarted && !isPaused) {
+                loadingMessage.innerHTML = '<p>Error: The video stream was interrupted.</p>';
+                loadingMessage.style.display = 'flex';
+                videoStream.style.display = 'none';
+            }
+        };
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const initialSpeedButton = document.querySelector('#speed-controls button.active');
+            const initialSpeed = initialSpeedButton.dataset.speed;
+            const initialUrl = `${baseVideoUrl}?speed=${initialSpeed}`;
+            setVideoStream(initialUrl);
+        });
+    </script>
 </body>
 </html>

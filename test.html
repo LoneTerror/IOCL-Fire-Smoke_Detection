@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IOCL Project | Fire & Smoke Detection</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
+
+      :root {
+        --primary-color: #e74c3c;
+        --secondary-color: #3498db;
+        --background-start: #1d1d2b;
+        --background-end: #2c2c44;
+        --card-background: rgba(44, 44, 66, 0.7);
+        --text-primary: #ecf0f1;
+        --text-secondary: #bdc3c7;
+        --border-color: rgba(149, 165, 166, 0.2);
+      }
+
+      /* --- THIS IS THE FIX FOR CENTERING --- */
+      /* These styles on the BODY element force everything to be centered on the page */
+      body {
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(
+          135deg,
+          var(--background-start),
+          var(--background-end)
+        );
+        color: var(--text-primary);
+        display: flex;
+        justify-content: center; /* Horizontally centers content */
+        align-items: center; /* Vertically centers content */
+        min-height: 100vh;
+        margin: 0;
+        padding: 40px 20px;
+        box-sizing: border-box;
+      }
+
+      .page-container {
+        width: 100%;
+        max-width: 850px;
+      }
+
+      .info-card,
+      .upload-card {
+        background-color: var(--card-background);
+        padding: 40px;
+        border-radius: 24px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        text-align: center;
+        border: 1px solid var(--border-color);
+        backdrop-filter: blur(12px);
+        margin-bottom: 30px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      /* NOTE: The old ".upload-card-align" class has been removed for simplicity */
+
+      .info-card:hover,
+      .upload-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .header img {
+        width: 48px;
+        height: 48px;
+        background: white;
+        border-radius: 12px;
+        padding: 4px;
+      }
+
+      .header h1 {
+        font-size: 2em;
+        font-weight: 700;
+        margin: 0;
+      }
+
+      .project-title {
+        font-size: 1.3em;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 5px;
+      }
+
+      .team-name {
+        font-size: 1.1em;
+        font-weight: 500;
+        color: var(--secondary-color);
+        margin-bottom: 20px;
+      }
+
+      .description {
+        font-size: 1em;
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 40px auto;
+        line-height: 1.7;
+      }
+
+      .features {
+        display: flex;
+        justify-content: center;
+        gap: 25px;
+        flex-wrap: wrap;
+      }
+
+      .feature-card {
+        background-color: rgba(255, 255, 255, 0.05);
+        padding: 25px;
+        border-radius: 16px;
+        flex: 1;
+        min-width: 200px;
+        border: 1px solid var(--border-color);
+        transition: transform 0.3s ease, background-color 0.3s ease;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-5px);
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .feature-card .icon {
+        margin-bottom: 15px;
+      }
+
+      .feature-card svg {
+        width: 32px;
+        height: 32px;
+        color: var(--secondary-color);
+      }
+
+      .feature-card h3 {
+        font-size: 1.1em;
+        font-weight: 600;
+        margin: 0 0 10px 0;
+      }
+
+      .feature-card p {
+        font-size: 0.9em;
+        color: var(--text-secondary);
+        margin: 0;
+        line-height: 1.6;
+      }
+
+      .upload-title {
+        font-size: 1.5em;
+        font-weight: 600;
+        margin-bottom: 25px;
+      }
+
+      .upload-area {
+        border: 2px dashed var(--border-color);
+        border-radius: 16px;
+        padding: 40px 20px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+      }
+
+      .upload-area.drag-over {
+        background-color: rgba(52, 152, 219, 0.1);
+        border-color: var(--secondary-color);
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      .upload-icon svg {
+        width: 48px;
+        height: 48px;
+        color: var(--primary-color);
+        margin-bottom: 15px;
+      }
+
+      .upload-text {
+        font-weight: 600;
+        font-size: 1.1em;
+        color: var(--text-primary);
+      }
+
+      #file-name {
+        display: block;
+        margin-top: 10px;
+        font-style: italic;
+        font-size: 0.9em;
+        color: var(--text-secondary);
+        min-height: 20px;
+      }
+
+      .upload-btn {
+        background: var(--primary-color);
+        color: white;
+        padding: 14px 28px;
+        border: none;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+        margin-top: 30px;
+        display: inline-block;
+      }
+
+      .upload-btn:hover {
+        background-color: #c0392b;
+        transform: scale(1.05);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-container">
+      <!-- Header Card -->
+      <div class="info-card">
+        <div class="header">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Indian_Oil_Logo.svg/640px-Indian_Oil_Logo.svg.png"
+            alt="IOCL Logo"
+          />
+          <h1>IOCL Project</h1>
+        </div>
+
+        <p class="project-title">Fire & Smoke Detection System</p>
+        <p class="team-name">by Team Burnt Out Engineers</p>
+
+        <p class="description">
+          Advanced AI-powered detection system by Indian Oil Corporation
+          utilizing cutting-edge computer vision to identify fire and smoke
+          hazards in real-time across refineries and industrial facilities.
+          Upload your video content for comprehensive safety analysis and hazard
+          prevention.
+        </p>
+
+        <div class="features">
+          <div class="feature-card">
+            <div class="icon">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+                ></path>
+              </svg>
+            </div>
+            <h3>Live Analysis</h3>
+            <p>
+              Instant detection and classification of fire and smoke patterns
+              with high accuracy.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="icon">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polygon
+                  points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"
+                ></polygon>
+              </svg>
+            </div>
+            <h3>Lightning Fast</h3>
+            <p>
+              Optimized processing engine delivers results in seconds, ensuring
+              rapid response times.
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="icon">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+            </div>
+            <h3>Multi-format Support</h3>
+            <p>
+              Compatible with all major video formats including MP4, AVI, MOV,
+              and more.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Card -->
+      <div class="upload-card">
+        <p class="upload-title">Upload Video for Analysis</p>
+        <form
+          id="main-form"
+          action="{% url 'upload_video' %}"
+          method="post"
+          enctype="multipart/form-data"
+        >
+          {% csrf_token %}
+          <label for="video-upload" class="upload-area">
+            <p><strong>Click here or drag & drop a video file</strong></p>
+            <div class="upload-icon">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <span class="upload-text">No file selected</span>
+          </label>
+          <input
+            id="video-upload"
+            type="file"
+            name="video"
+            accept="video/*"
+            required
+          />
+          <br />
+          <button type="submit" class="upload-btn">Analyze Video</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("main-form");
+      const fileInput = document.getElementById("video-upload");
+      const fileNameSpan = document.getElementById("file-name");
+      const uploadLabel = document.getElementById("upload-label");
+      const defaultText = fileNameSpan.textContent;
+
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        uploadLabel.addEventListener(
+          eventName,
+          (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          },
+          false
+        );
+      });
+
+      uploadLabel.addEventListener("dragover", () => {
+        uploadLabel.classList.add("drag-over");
+      });
+
+      uploadLabel.addEventListener("dragleave", () => {
+        uploadLabel.classList.remove("drag-over");
+      });
+
+      uploadLabel.addEventListener("drop", (e) => {
+        uploadLabel.classList.remove("drag-over");
+        const droppedFiles = e.dataTransfer.files;
+        if (droppedFiles.length > 0) {
+          fileInput.files = droppedFiles;
+          const event = new Event("change");
+          fileInput.dispatchEvent(event);
+        }
+      });
+
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files.length > 0) {
+          fileNameSpan.textContent = fileInput.files[0].name;
+        } else {
+          fileNameSpan.textContent = defaultText;
+        }
+      });
+    </script>
+  </body>
+</html>

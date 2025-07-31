@@ -1,75 +1,98 @@
 # fire_detection/views.py
 from django.shortcuts import render, redirect
-from django.http import StreamingHttpResponse, HttpResponse
+from django.http import StreamingHttpResponse, HttpResponse, JsonResponse
+from .yolo_video_processor import generate_video_frames, generate_realtime_frames
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
-from .video_processor import generate_video_frames
 import os
+import cv2
 
 def upload_video_view(request):
     """
-    Handles the video upload form. When a video is POSTed, it saves the video
-    and redirects the user to the monitoring page.
+    Handles video upload and redirects to the new analysis page.
     """
     if request.method == 'POST' and request.FILES.get('video'):
         video_file = request.FILES['video']
-        
-        fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'videos'))
+        videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
+        os.makedirs(videos_dir, exist_ok=True)
+        fs = FileSystemStorage(location=videos_dir)
         filename = fs.save(video_file.name, video_file)
         
-        request.session['video_path'] = fs.path(filename)
-        
-        return redirect('monitor')
+        # --- THIS IS THE CHANGE ---
+        # Redirect to the analysis page, passing the filename
+        return redirect('analysis', video_name=filename)
 
     return render(request, 'fire_detection/upload.html')
 
-
-def monitor_view(request):
+# --- NEW VIEW for the single video analysis page ---
+def analysis_view(request, video_name):
     """
-    Renders the page that will display the live-processed video stream.
+    Renders the page for analyzing a single, specific video.
     """
-    if 'video_path' not in request.session:
+    video_path = os.path.join(settings.MEDIA_ROOT, 'videos', video_name)
+    if not os.path.exists(video_path):
+        # If video doesn't exist, redirect to the upload page
         return redirect('upload_video')
         
-    return render(request, 'fire_detection/monitor.html')
+    context = {'video_name': video_name}
+    return render(request, 'fire_detection/analysis.html', context)
 
+def dashboard_view(request):
+    videos_dir = os.path.join(settings.MEDIA_ROOT, 'videos')
+    available_videos = []
+    try:
+        os.makedirs(videos_dir, exist_ok=True)
+        available_videos = [f for f in os.listdir(videos_dir) if os.path.isfile(os.path.join(videos_dir, f))]
+    except Exception as e:
+        print(f"Error reading video directory: {e}")
+    context = {'available_videos': available_videos}
+    return render(request, 'fire_detection/dashboard.html', context)
 
 def video_feed_view(request):
-    """
-    This is the main view for video streaming.
-    """
-    video_path = request.session.get('video_path')
+    video_name = request.GET.get('video_name')
+    if not video_name:
+        return HttpResponse("No video specified.", status=404)
+    video_path = os.path.join(settings.MEDIA_ROOT, 'videos', video_name)
+    if not os.path.exists(video_path):
+        return HttpResponse(f"Video '{video_name}' not found.", status=404)
     
-    if not video_path or not os.path.exists(video_path):
-        return redirect('upload_video')
+    playback_speed = float(request.GET.get('speed', 1.0))
+    start_at_percent = float(request.GET.get('start_at', 0.0))
+    
+    frame_generator = generate_video_frames(video_path, playback_speed=playback_speed, start_at_percent=start_at_percent)
+    return StreamingHttpResponse(frame_generator, content_type='multipart/x-mixed-replace; boundary=frame')
 
-    frame_generator = generate_video_frames(video_path)
-    
-    response = StreamingHttpResponse(
-        frame_generator,
-        content_type='multipart/x-mixed-replace; boundary=frame'
-    )
-    
-    return response
+def realtime_feed_view(request):
+    frame_generator = generate_realtime_frames()
+    return StreamingHttpResponse(frame_generator, content_type='multipart/x-mixed-replace; boundary=frame')
 
-# --- NEW VIEW FOR LOGS ---
+def get_video_info(request):
+    video_name = request.GET.get('video_name')
+    if not video_name:
+        return JsonResponse({'error': 'No video specified'}, status=400)
+    video_path = os.path.join(settings.MEDIA_ROOT, 'videos', video_name)
+    if not os.path.exists(video_path):
+        return JsonResponse({'error': 'Video not found'}, status=404)
+    try:
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        duration = frame_count / fps if fps > 0 else 0
+        cap.release()
+        return JsonResponse({'duration': duration})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 def view_log_file(request):
-    """
-    Reads the detection_log.txt file and displays it on a new page.
-    """
+    # ... (no changes here)
     log_file_path = os.path.join(settings.BASE_DIR, 'detection_log.txt')
     log_content = "Log file is empty or does not exist yet."
     try:
         with open(log_file_path, 'r') as f:
-            # Read lines and reverse them to show the most recent logs first
             log_lines = f.readlines()
             if log_lines:
                 log_content = "".join(reversed(log_lines))
     except FileNotFoundError:
-        # The file hasn't been created yet, the default message will be shown.
         pass
-    except Exception as e:
-        log_content = f"Error reading log file: {e}"
-        
     context = {'log_content': log_content}
     return render(request, 'fire_detection/view_log.html', context)

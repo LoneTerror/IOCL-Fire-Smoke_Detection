@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Dashboard | Fire & Smoke Detection</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+        :root {
+            --background-color: #1e1e1e;
+            --card-color: #2c2c3e;
+            --border-color: #444;
+            --text-primary: #ecf0f1;
+            --text-secondary: #bdc3c7;
+            --accent-color: #e74c3c;
+            --primary-btn-color: #3498db;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--background-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { color: var(--accent-color); margin: 0; }
+        .main-controls { text-align: center; margin-bottom: 25px; display: flex; justify-content: center; gap: 15px; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; }
+        .cam-container { background-color: var(--card-color); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; transition: grid-column 0.3s ease, grid-row 0.3s ease; }
+        .cam-size-s { grid-column: span 2; }
+        .cam-size-m { grid-column: span 3; }
+        .cam-size-l { grid-column: span 6; }
+        .cam-header { padding: 10px 15px; background-color: #333; font-weight: 600; font-size: 1.1em; display: flex; justify-content: space-between; align-items: center; }
+        /* --- THIS IS THE FIX for Editable Names --- */
+        .cam-title[contenteditable="true"] {
+            outline: none;
+            border-bottom: 2px dashed var(--primary-btn-color);
+            cursor: text;
+        }
+        .video-wrapper { position: relative; width: 100%; aspect-ratio: 16 / 9; background-color: #000; display: flex; align-items: center; justify-content: center; }
+        .video-wrapper img, .video-wrapper canvas { width: 100%; height: 100%; object-fit: contain; }
+        .placeholder { color: var(--text-secondary); text-align: center; }
+        .cam-controls { padding: 10px; display: flex; justify-content: center; }
+        .btn { padding: 8px 16px; font-size: 14px; cursor: pointer; border: none; border-radius: 6px; background-color: var(--primary-btn-color); color: white; transition: background-color 0.3s; text-decoration: none; }
+        .btn:hover { background-color: #2980b9; }
+        .btn:disabled { background-color: #555; cursor: not-allowed; }
+        .remove-cam-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.6em; font-weight: bold; cursor: pointer; padding: 0 5px; line-height: 1; transition: color 0.2s; }
+        .remove-cam-btn:hover { color: var(--accent-color); }
+        .controls-overlay { position: absolute; bottom: 0; left: 0; width: 100%; padding: 10px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; opacity: 0; transition: opacity 0.3s ease-in-out; z-index: 20; }
+        .video-wrapper:hover .controls-overlay { opacity: 1; }
+        .top-controls { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .control-group { display: flex; align-items: center; gap: 8px; }
+        .control-group button, .control-group .btn { padding: 6px 10px; font-size: 12px; cursor: pointer; border: 1px solid #555; background-color: rgba(51, 51, 51, 0.8); color: white; border-radius: 5px; transition: background-color 0.3s; }
+        .control-group button:hover, .control-group .btn:hover { background-color: #555; }
+        .control-group button.active { background-color: var(--primary-btn-color); border-color: var(--primary-btn-color); }
+        .play-pause-btn svg { width: 20px; height: 20px; fill: white; }
+        .progress-bar-container { width: 100%; height: 5px; background-color: rgba(255, 255, 255, 0.3); border-radius: 5px; cursor: pointer; }
+        .progress-bar { height: 100%; width: 0%; background-color: var(--accent-color); border-radius: 5px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+        .modal-content { background-color: var(--card-color); padding: 20px; border: 1px solid var(--border-color); border-radius: 12px; width: 90%; max-width: 500px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .close-btn { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .video-list { list-style-type: none; padding: 0; max-height: 300px; overflow-y: auto; }
+        .video-list li { padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background-color 0.2s; }
+        .video-list li:hover { background-color: #3a3a4a; }
+        .realtime-btn { background-color: var(--accent-color) !important; font-weight: 600; }
+        .upload-area { border: 2px dashed var(--border-color); border-radius: 16px; padding: 30px; cursor: pointer; transition: background-color 0.3s ease, border-color 0.3s ease; }
+        .upload-area.drag-over { background-color: rgba(52, 152, 219, 0.1); border-color: var(--primary-btn-color); }
+        .upload-icon svg { width: 40px; height: 40px; color: var(--primary-btn-color); margin-bottom: 15px; }
+        #file-name { font-style: italic; color: var(--text-secondary); min-height: 20px; }
+        .upload-btn { background: var(--accent-color); margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="header"><h1>Monitoring Dashboard</h1><p>Live analysis from allocated camera feeds.</p></div>
+    <div class="main-controls">
+        <!-- THIS IS THE FIX for the buttons -->
+        <button id="upload-video-btn" class="btn">Upload New Video</button>
+        <button id="add-cam-btn" class="btn">Add Camera</button>
+        <a href="{% url 'upload_video' %}" class="btn">Analyze Single Video</a>
+    </div>
+    <div class="dashboard-grid" id="dashboard-grid">
+        <template id="cam-template">
+            <div class="cam-container cam-size-m">
+                <div class="cam-header">
+                    <span class="cam-title" contenteditable="true">CAM-01</span>
+                    <button class="remove-cam-btn" title="Remove Camera" style="display: none;">&times;</button>
+                </div>
+                <div class="video-wrapper">
+                    <img src="" alt="CAM Feed" style="display: none;"><canvas class="paused-canvas" style="display: none;"></canvas><div class="placeholder"><p>No Video Allocated</p></div>
+                    <div class="controls-overlay">
+                        <div class="progress-bar-container"><div class="progress-bar"></div></div>
+                        <div class="top-controls">
+                            <div class="control-group"><button class="play-pause-btn"><svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg><svg class="pause-icon" viewBox="0 0 24 24" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg></button></div>
+                            <div class="control-group speed-controls"><span>Speed:</span><button data-speed="0.5">0.5x</button><button data-speed="1.0" class="active">1x</button><button data-speed="2.0">2x</button></div>
+                            <div class="control-group size-controls"><span>Size:</span><button data-size="s">S</button><button data-size="m" class="active">M</button><button data-size="l">L</button></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="cam-controls"><button class="btn allocate-btn">Allocate Video</button></div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Video Allocation Modal -->
+    <div id="video-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2>Select a Video Source</h2><span class="close-btn">&times;</span></div>
+            <ul class="video-list">
+                <li class="realtime-btn" data-source-type="realtime">Start Real-time Feed</li>
+                {% if available_videos %}{% for video in available_videos %}<li data-video-name="{{ video }}" data-source-type="video">{{ video }}</li>{% endfor %}{% else %}<li>No videos uploaded yet.</li>{% endif %}
+            </ul>
+        </div>
+    </div>
+    
+    <!-- NEW: Upload Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2>Upload a New Video</h2><span class="close-btn">&times;</span></div>
+            <form id="upload-form" action="{% url 'upload_video' %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <label for="video-upload" class="upload-area" id="upload-label">
+                    <div class="upload-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+                    <p>Click here or drag & drop a video file</p>
+                    <span id="file-name">No file selected</span>
+                </label>
+                <input id="video-upload" type="file" name="video" accept="video/*" required>
+                <button type="submit" class="btn upload-btn">Upload & Analyze</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoModal = document.getElementById('video-modal');
+            const uploadModal = document.getElementById('upload-modal');
+            const videoList = document.querySelector('.video-list');
+            const dashboardGrid = document.getElementById('dashboard-grid');
+            const addCamBtn = document.getElementById('add-cam-btn');
+            const uploadVideoBtn = document.getElementById('upload-video-btn');
+            const camTemplate = document.getElementById('cam-template');
+            let activeCamContainer = null;
+
+            // --- Modal Controls ---
+            function setupModal(modal) {
+                const closeBtn = modal.querySelector('.close-btn');
+                closeBtn.addEventListener('click', () => modal.style.display = 'none');
+            }
+            setupModal(videoModal);
+            setupModal(uploadModal);
+            
+            uploadVideoBtn.addEventListener('click', () => {
+                uploadModal.style.display = 'flex';
+            });
+            
+            window.addEventListener('click', (event) => {
+                if (event.target == videoModal) videoModal.style.display = 'none';
+                if (event.target == uploadModal) uploadModal.style.display = 'none';
+            });
+
+            // --- Upload Form Drag & Drop ---
+            const fileInput = document.getElementById("video-upload");
+            const fileNameSpan = document.getElementById("file-name");
+            const uploadLabel = document.getElementById("upload-label");
+            const defaultText = "No file selected";
+
+            ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+                uploadLabel.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+            uploadLabel.addEventListener("dragover", () => uploadLabel.classList.add("drag-over"));
+            uploadLabel.addEventListener("dragleave", () => uploadLabel.classList.remove("drag-over"));
+            uploadLabel.addEventListener("drop", (e) => {
+                uploadLabel.classList.remove("drag-over");
+                const droppedFiles = e.dataTransfer.files;
+                if (droppedFiles.length > 0) {
+                    fileInput.files = droppedFiles;
+                    fileInput.dispatchEvent(new Event("change"));
+                }
+            });
+            fileInput.addEventListener("change", () => {
+                fileNameSpan.textContent = fileInput.files.length > 0 ? fileInput.files[0].name : defaultText;
+            });
+
+            // --- Camera Grid Logic ---
+            function openModal(camContainer) {
+                activeCamContainer = camContainer;
+                videoModal.style.display = 'flex';
+            }
+
+            function updateCameraNumbers() {
+                const allCams = dashboardGrid.querySelectorAll('.cam-container');
+                allCams.forEach((cam, index) => {
+                    const camTitle = cam.querySelector('.cam-title');
+                    const removeBtn = cam.querySelector('.remove-cam-btn');
+                    const camNum = index + 1;
+                    cam.dataset.camId = camNum;
+                    camTitle.textContent = `CAM-${String(camNum).padStart(2, '0')}`;
+                    if(removeBtn) removeBtn.style.display = (camNum > 1) ? 'block' : 'none';
+                });
+            }
+
+            function attachListeners(camContainer) {
+                // ... (All the per-camera listeners from the previous version go here)
+                const allocateBtn = camContainer.querySelector('.allocate-btn');
+                const removeBtn = camContainer.querySelector('.remove-cam-btn');
+                const playPauseBtn = camContainer.querySelector('.play-pause-btn');
+                const speedBtns = camContainer.querySelectorAll('.speed-controls button');
+                const sizeBtns = camContainer.querySelectorAll('.size-controls button');
+                const videoImg = camContainer.querySelector('img');
+                const pausedCanvas = camContainer.querySelector('.paused-canvas');
+                const ctx = pausedCanvas.getContext('2d');
+                const progressBar = camContainer.querySelector('.progress-bar');
+                
+                camContainer.playerState = {
+                    isPaused: true, currentSpeed: 1.0, videoName: null, videoDuration: 0, progressInterval: null, elapsedTime: 0, isRealtime: false
+                };
+                let state = camContainer.playerState;
+
+                function setVideoStream(url) {
+                    const placeholder = camContainer.querySelector('.placeholder');
+                    state.videoUrl = url;
+                    videoImg.src = url;
+                    videoImg.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    pausedCanvas.style.display = 'none';
+                    startProgressBar();
+                }
+
+                function startProgressBar() {
+                    clearInterval(state.progressInterval);
+                    if (state.videoDuration <= 0) { progressBar.style.width = '100%'; return; }
+                    state.progressInterval = setInterval(() => {
+                        if (state.isPaused) { clearInterval(state.progressInterval); return; }
+                        state.elapsedTime += 0.1 * state.currentSpeed;
+                        let progress = (state.elapsedTime / state.videoDuration) * 100;
+                        if (progress >= 100) { progress = 100; clearInterval(state.progressInterval); }
+                        progressBar.style.width = `${progress}%`;
+                    }, 100);
+                }
+
+                function startStream() {
+                    if (!state.videoName && !state.isRealtime) return;
+                    const progressPercent = state.videoDuration > 0 ? state.elapsedTime / state.videoDuration : 0;
+                    let url;
+                    if (state.isRealtime) {
+                        url = new URL(`{% url 'realtime_feed' %}`, window.location.origin);
+                    } else {
+                        url = new URL(`{% url 'video_feed' %}`, window.location.origin);
+                        url.searchParams.set('video_name', state.videoName);
+                        url.searchParams.set('speed', state.currentSpeed);
+                        url.searchParams.set('start_at', progressPercent.toFixed(4));
+                    }
+                    setVideoStream(url.href);
+                }
+
+                playPauseBtn.addEventListener('click', () => {
+                    if (!state.videoName && !state.isRealtime) return;
+                    state.isPaused = !state.isPaused;
+                    const playIcon = playPauseBtn.querySelector('.play-icon');
+                    const pauseIcon = playPauseBtn.querySelector('.pause-icon');
+                    playIcon.style.display = state.isPaused ? 'block' : 'none';
+                    pauseIcon.style.display = state.isPaused ? 'none' : 'block';
+
+                    if (state.isPaused) {
+                        if (videoImg.naturalWidth > 0) {
+                            pausedCanvas.width = videoImg.naturalWidth;
+                            pausedCanvas.height = videoImg.naturalHeight;
+                            ctx.drawImage(videoImg, 0, 0);
+                        }
+                        videoImg.src = ''; 
+                        videoImg.style.display = 'none';
+                        pausedCanvas.style.display = 'block';
+                        clearInterval(state.progressInterval);
+                    } else {
+                        startStream();
+                    }
+                });
+
+                speedBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        speedBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        state.currentSpeed = parseFloat(btn.dataset.speed);
+                        if (!state.isPaused) startStream();
+                    });
+                });
+
+                allocateBtn.addEventListener('click', () => openModal(camContainer));
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', () => {
+                        camContainer.remove(); updateCameraNumbers(); addCamBtn.disabled = false;
+                    });
+                }
+                sizeBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        sizeBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        camContainer.classList.remove('cam-size-s', 'cam-size-m', 'cam-size-l');
+                        camContainer.classList.add(`cam-size-${btn.dataset.size}`);
+                    });
+                });
+            }
+
+            function addNewCamera() {
+                const cameraCount = dashboardGrid.querySelectorAll('.cam-container').length;
+                if (cameraCount >= 8) return;
+                
+                const newCam = camTemplate.content.cloneNode(true).firstElementChild;
+                dashboardGrid.appendChild(newCam);
+                attachListeners(newCam);
+                updateCameraNumbers();
+
+                if (cameraCount + 1 >= 8) {
+                    addCamBtn.disabled = true;
+                }
+            }
+
+            addCamBtn.addEventListener('click', addNewCamera);
+            addNewCamera(); // Add the first camera on page load
+
+            videoList.addEventListener('click', async function(event) {
+                const target = event.target.closest('li');
+                if (!target || !activeCamContainer) return;
+
+                const sourceType = target.dataset.sourceType;
+                if (!sourceType) return;
+
+                const videoName = target.dataset.videoName || null;
+                const state = activeCamContainer.playerState;
+
+                state.videoName = videoName;
+                state.videoDuration = 0;
+                state.elapsedTime = 0;
+                state.isRealtime = (sourceType === 'realtime');
+
+                if (sourceType === 'video') {
+                    try {
+                        const response = await fetch(`{% url 'video_info' %}?video_name=${videoName}`);
+                        const data = await response.json();
+                        if (data.duration) state.videoDuration = data.duration;
+                    } catch (error) { console.error("Error fetching video duration:", error); }
+                }
+                
+                state.isPaused = false;
+                const playIcon = activeCamContainer.querySelector('.play-icon');
+                const pauseIcon = activeCamContainer.querySelector('.pause-icon');
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+
+                const url = new URL(state.isRealtime ? `{% url 'realtime_feed' %}` : `{% url 'video_feed' %}`, window.location.origin);
+                if (!state.isRealtime) {
+                    url.searchParams.set('video_name', state.videoName);
+                    url.searchParams.set('speed', state.currentSpeed);
+                    url.searchParams.set('start_at', '0');
+                }
+                
+                const videoImg = activeCamContainer.querySelector('img');
+                const placeholder = activeCamContainer.querySelector('.placeholder');
+                const pausedCanvas = activeCamContainer.querySelector('.paused-canvas');
+                
+                state.videoUrl = url.href;
+                videoImg.src = url.href;
+                videoImg.style.display = 'block';
+                placeholder.style.display = 'none';
+                pausedCanvas.style.display = 'none';
+                
+                const progressBar = activeCamContainer.querySelector('.progress-bar');
+                clearInterval(state.progressInterval);
+                if (state.videoDuration <= 0) {
+                    progressBar.style.width = '100%';
+                } else {
+                    state.progressInterval = setInterval(() => {
+                        if (state.isPaused) {
+                            clearInterval(state.progressInterval);
+                            return;
+                        }
+                        state.elapsedTime += 0.1 * state.currentSpeed;
+                        let progress = (state.elapsedTime / state.videoDuration) * 100;
+                        if (progress >= 100) {
+                            progress = 100;
+                            clearInterval(state.progressInterval);
+                        }
+                        progressBar.style.width = `${progress}%`;
+                    }, 100);
+                }
+
+                videoModal.style.display = 'none';
+            });
+        });
+    </script>
+
+</body>
+</html>
